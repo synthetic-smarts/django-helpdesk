@@ -492,6 +492,7 @@ class Ticket(models.Model):
     Note that assigned_to is optional - unassigned tickets are displayed on
     the dashboard to prompt users to take ownership of them.
     """
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
 
     OPEN_STATUS = helpdesk_settings.OPEN_STATUS
     REOPENED_STATUS = helpdesk_settings.REOPENED_STATUS
@@ -970,6 +971,7 @@ class FollowUp(models.Model):
     Tickets that aren't public are never shown to or e-mailed to the submitter,
     although all staff can see them.
     """
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
 
     ticket = models.ForeignKey(
         Ticket,
@@ -1153,6 +1155,7 @@ class TicketChange(models.Model):
     For each FollowUp, any changes to the parent ticket (eg Title, Priority,
     etc) are tracked here for display purposes.
     """
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
 
     followup = models.ForeignKey(
         FollowUp,
@@ -1271,6 +1274,7 @@ class Attachment(models.Model):
 
 
 class FollowUpAttachment(Attachment):
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
     followup = models.ForeignKey(
         FollowUp,
         on_delete=models.CASCADE,
@@ -1895,6 +1899,7 @@ class TicketCC(models.Model):
     In this circumstance, a 'person' could be either an e-mail address or
     an existing system user.
     """
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
 
     ticket = models.ForeignKey(
         Ticket,
@@ -2129,6 +2134,7 @@ class CustomField(models.Model):
 
 
 class TicketCustomFieldValue(models.Model):
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2162,6 +2168,7 @@ class TicketDependency(models.Model):
     To help enforce this, a helper function `can_be_resolved` on each Ticket instance checks that
     these have all been resolved.
     """
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
 
     class Meta:
         unique_together = (("ticket", "depends_on"),)
@@ -2211,6 +2218,7 @@ class ChecklistTemplate(models.Model):
 
 
 class Checklist(models.Model):
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2240,6 +2248,7 @@ class ChecklistTaskQuerySet(models.QuerySet):
 
 
 class ChecklistTask(models.Model):
+    team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
     checklist = models.ForeignKey(
         Checklist,
         on_delete=models.CASCADE,
