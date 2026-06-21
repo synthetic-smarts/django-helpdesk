@@ -493,6 +493,14 @@ class Ticket(models.Model):
     the dashboard to prompt users to take ownership of them.
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    tenant_id = models.UUIDField(db_index=True, null=True, blank=True)  # which site this ticket is about; null for account-level tickets
+    email_message_id = models.TextField(null=True, blank=True)  # RFC 5322 Message-ID of the originating email (source='email'); null otherwise
+    idempotency_key = models.CharField(max_length=64, null=True, blank=True)  # API/MCP idempotency key; null when not provided
+    finding_id = models.UUIDField(null=True, blank=True)  # diagnostic finding correlation (non-FK, cross-plane per ADR-0027); null when unlinked
+    linked_issue_url = models.URLField(null=True, blank=True)  # GitHub Issue bridge; null when un-bridged
+    source = models.CharField(max_length=20, choices=[("email", "email"), ("mcp", "mcp"), ("api", "api"), ("escalation", "escalation"), ("web", "web")], default="web")  # provenance; NOT NULL (web = upstream form/staff origin)
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)  # null until archived
 
     OPEN_STATUS = helpdesk_settings.OPEN_STATUS
     REOPENED_STATUS = helpdesk_settings.REOPENED_STATUS
@@ -849,6 +857,24 @@ class Ticket(models.Model):
         ordering = ("id",)
         verbose_name = _("Ticket")
         verbose_name_plural = _("Tickets")
+        indexes = [
+            models.Index(fields=["team_id", "status", "-created"]),
+            models.Index(fields=["team_id", "assigned_to", "status"]),
+        ]
+        constraints = [
+            # SES-retry dedup scoped to the account (team_id is our tenant identity)
+            models.UniqueConstraint(
+                fields=["team_id", "email_message_id"],
+                condition=models.Q(email_message_id__isnull=False),
+                name="helpdesk_ticket_team_email_msgid_uniq",
+            ),
+            # API/MCP idempotency dedup, same account scope
+            models.UniqueConstraint(
+                fields=["team_id", "idempotency_key"],
+                condition=models.Q(idempotency_key__isnull=False),
+                name="helpdesk_ticket_team_idempotency_uniq",
+            ),
+        ]
 
     def __str__(self):
         return "%s %s" % (self.id, self.title)
@@ -972,6 +998,8 @@ class FollowUp(models.Model):
     although all staff can see them.
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    idempotency_key = models.CharField(max_length=64, null=True, blank=True)  # API/MCP idempotency key for comments
+    source = models.CharField(max_length=20, choices=[("email", "email"), ("mcp", "mcp"), ("api", "api"), ("escalation", "escalation"), ("web", "web")], default="web")  # provenance; NOT NULL
 
     ticket = models.ForeignKey(
         Ticket,
@@ -1039,6 +1067,14 @@ class FollowUp(models.Model):
         ordering = ("date",)
         verbose_name = _("Follow-up")
         verbose_name_plural = _("Follow-ups")
+        constraints = [
+            # email-reply dedup scoped to the account (team_id is our tenant identity)
+            models.UniqueConstraint(
+                fields=["team_id", "message_id"],
+                condition=models.Q(message_id__isnull=False),
+                name="helpdesk_followup_team_msgid_uniq",
+            ),
+        ]
 
     def __str__(self):
         return "%s" % self.title
@@ -1156,6 +1192,7 @@ class TicketChange(models.Model):
     etc) are tracked here for display purposes.
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    payload = models.JSONField(default=dict, blank=True)  # event-specific structured data; NOT NULL, empty dict default
 
     followup = models.ForeignKey(
         FollowUp,
@@ -1275,6 +1312,11 @@ class Attachment(models.Model):
 
 class FollowUpAttachment(Attachment):
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    scan_status = models.CharField(max_length=20, choices=[("pending", "pending"), ("clean", "clean"), ("quarantined", "quarantined"), ("scan_error", "scan_error")], default="pending")  # async PAN scan state; NOT NULL
+    quarantine_reason = models.TextField(null=True, blank=True)
+    scan_completed_at = models.DateTimeField(null=True, blank=True)
+    size_bytes = models.BigIntegerField(null=True, blank=True)
+    s3_key = models.CharField(max_length=1024, null=True, blank=True)
     followup = models.ForeignKey(
         FollowUp,
         on_delete=models.CASCADE,
