@@ -59,16 +59,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-[project.optional-dependencies]
-teams = [
-    "pinax_teams",
-]
-
 [dependency-groups]
-teams = [
-    "pinax-invitations>=8.0.0",
-    "pinax-teams>=3.0.0",
-]
 test = [
     "argparse>=1.4.0",
     "coverage>=7.10.4",

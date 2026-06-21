@@ -42,14 +42,6 @@ class HelpdeskUser:
                     categories.append(cat)
         return categories
 
-    def get_assigned_kb_items(self):
-        kbitems = []
-        if helpdesk_settings.HELPDESK_KB_ENABLED:
-            for item in KBItem.objects.all():
-                if item.get_team() and item.get_team().is_member(self.user):
-                    kbitems.append(item)
-        return kbitems
-
     def get_tickets_in_queues(self):
         return Ticket.objects.filter(queue__in=self.get_queues())
 

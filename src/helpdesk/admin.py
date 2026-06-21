@@ -107,7 +107,7 @@ if helpdesk_settings.HELPDESK_KB_ENABLED:
 
     @admin.register(KBItem)
     class KBItemAdmin(admin.ModelAdmin):
-        list_display = ("category", "title", "last_updated", "team", "order", "enabled")
+        list_display = ("category", "title", "last_updated", "order", "enabled")
         inlines = [KBIAttachmentInline]
         readonly_fields = ("voted_by", "downvoted_by")
 

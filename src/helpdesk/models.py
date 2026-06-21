@@ -1561,14 +1561,6 @@ class KBItem(models.Model):
         blank=True,
     )
 
-    team = models.ForeignKey(
-        helpdesk_settings.HELPDESK_TEAMS_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name=_("Team"),
-        blank=True,
-        null=True,
-    )
-
     order = models.PositiveIntegerField(
         _("Order"),
         blank=True,
@@ -1584,9 +1576,6 @@ class KBItem(models.Model):
         if not self.last_updated:
             self.last_updated = timezone.now()
         return super(KBItem, self).save(*args, **kwargs)
-
-    def get_team(self):
-        return helpdesk_settings.HELPDESK_KBITEM_TEAM_GETTER(self)
 
     def _score(self):
         """Return a score out of 10 or Unrated if no votes"""

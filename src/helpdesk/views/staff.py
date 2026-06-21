@@ -204,11 +204,6 @@ def dashboard(request):
     unassigned_tickets = active_tickets.filter(
         assigned_to__isnull=True, queue__in=user_queues
     ).order_by(unassigned_tickets_sort)
-    kbitems = None
-    # Teams mode uses assignment via knowledge base items so exclude tickets assigned to KB items
-    if helpdesk_settings.HELPDESK_TEAMS_MODE_ENABLED:
-        unassigned_tickets = unassigned_tickets.filter(kbitem__isnull=True)
-        kbitems = huser.get_assigned_kb_items()
 
     # all tickets, reported by current user
     all_tickets_reported_by_current_user = ""
@@ -287,7 +282,6 @@ def dashboard(request):
             "user_tickets": tickets,
             "user_tickets_closed_resolved": tickets_closed_resolved,
             "unassigned_tickets": unassigned_tickets,
-            "kbitems": kbitems,
             "all_tickets_reported_by_current_user": all_tickets_reported_by_current_user,
             "basic_ticket_stats": basic_ticket_stats,
             "user_tickets_sort": user_tickets_sort,

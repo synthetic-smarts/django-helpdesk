@@ -390,22 +390,15 @@ HELPDESK_USE_HTTPS_IN_EMAIL_LINK = getattr(
     settings, "HELPDESK_USE_HTTPS_IN_EMAIL_LINK", settings.SECURE_SSL_REDIRECT
 )
 
-# Default to True for backwards compatibility
-HELPDESK_TEAMS_MODE_ENABLED = getattr(settings, "HELPDESK_TEAMS_MODE_ENABLED", True)
-if HELPDESK_TEAMS_MODE_ENABLED:
-    HELPDESK_TEAMS_MODEL = getattr(settings, "HELPDESK_TEAMS_MODEL", "pinax_teams.Team")
-    HELPDESK_TEAMS_MIGRATION_DEPENDENCIES = getattr(
-        settings,
-        "HELPDESK_TEAMS_MIGRATION_DEPENDENCIES",
-        [("pinax_teams", "0004_auto_20170511_0856")],
-    )
-    HELPDESK_KBITEM_TEAM_GETTER = getattr(
-        settings, "HELPDESK_KBITEM_TEAM_GETTER", lambda kbitem: kbitem.team
-    )
-else:
-    HELPDESK_TEAMS_MODEL = settings.AUTH_USER_MODEL
-    HELPDESK_TEAMS_MIGRATION_DEPENDENCIES = []
-    HELPDESK_KBITEM_TEAM_GETTER = lambda _: None  # noqa
+# synsmarts fork: django-helpdesk "teams mode" (pinax-teams) was removed — the
+# platform isolates by team_id (PostgreSQL RLS, per ADR-0083), not by KBItem-team
+# routing. HELPDESK_TEAMS_MODEL and HELPDESK_TEAMS_MIGRATION_DEPENDENCIES are
+# retained ONLY so the historical migration 0028_kbitem_team replays on a fresh
+# database; the kbitem.team column it adds is dropped in 0040_remove_kbitem_team.
+# No pinax dependency: the model target is hardwired to AUTH_USER_MODEL and the
+# migration dependency list is empty.
+HELPDESK_TEAMS_MODEL = settings.AUTH_USER_MODEL
+HELPDESK_TEAMS_MIGRATION_DEPENDENCIES = []
 
 # show kanban board?
 HELPDESK_KANBAN_ENABLED = getattr(settings, "HELPDESK_KANBAN_ENABLED", True)
@@ -421,12 +414,7 @@ HELPDESK_KANBAN_DEFAULT_RENDER_CLOSED_TICKETS_WEEKS = getattr(
 )
 
 # show knowledgebase links?
-# If Teams mode is enabled then it has to be on
-HELPDESK_KB_ENABLED = (
-    True
-    if HELPDESK_TEAMS_MODE_ENABLED
-    else getattr(settings, "HELPDESK_KB_ENABLED", True)
-)
+HELPDESK_KB_ENABLED = getattr(settings, "HELPDESK_KB_ENABLED", True)
 
 # If set then we always save incoming emails as .eml attachments
 # which is quite noisy but very helpful for complicated markup, forwards and so on
