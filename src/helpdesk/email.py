@@ -585,7 +585,21 @@ def create_ticket_cc(ticket, cc_list, logger):
     return new_ticket_ccs
 
 
-def create_object_from_email_message(message, ticket_id, payload, files, logger):
+def create_object_from_email_message(
+    message, ticket_id, payload, files, logger, *, team_id, tenant_id=None
+):
+    # synsmarts invariant entry point (ADR-0083). The team isolation key is the
+    # EXPLICIT team_id this function is handed by the caller (the Slice 8 SES
+    # consumer, after its own routing/validation). The fork trusts ONLY that
+    # value — never the sender address, never an ambient ContextVar, never RLS —
+    # and fails closed if it is missing: a missing/ambiguous team must route to
+    # UnroutedEmail upstream, never create a tenant row here. Lookups below filter
+    # explicitly by team_id so a reply can only thread to a same-team ticket.
+    if not team_id:
+        raise ValueError(
+            "create_object_from_email_message requires a resolved team_id; "
+            "missing/ambiguous attribution must route to UnroutedEmail, not create a Ticket"
+        )
     ticket, previous_followup, new = None, None, False
     now = timezone.now()
 
@@ -606,7 +620,9 @@ def create_object_from_email_message(message, ticket_id, payload, files, logger)
 
     if in_reply_to is not None:
         try:
-            queryset = FollowUp.objects.filter(message_id=in_reply_to).order_by("-date")
+            queryset = FollowUp.objects.filter(
+                message_id=in_reply_to, team_id=team_id
+            ).order_by("-date")
             if queryset.count() > 0:
                 previous_followup = queryset.first()
                 ticket = previous_followup.ticket
@@ -615,7 +631,7 @@ def create_object_from_email_message(message, ticket_id, payload, files, logger)
 
     if previous_followup is None and ticket_id is not None:
         try:
-            ticket = Ticket.objects.get(id=ticket_id)
+            ticket = Ticket.objects.get(id=ticket_id, team_id=team_id)
         except Ticket.DoesNotExist:
             ticket = None
         else:
@@ -635,6 +651,8 @@ def create_object_from_email_message(message, ticket_id, payload, files, logger)
                 created=now,
                 description=payload["body"],
                 priority=payload["priority"],
+                team_id=team_id,
+                tenant_id=tenant_id,
             )
             ticket.save()
             logger.debug("Created new ticket %s-%s" % (ticket.queue.slug, ticket.id))
@@ -659,6 +677,7 @@ def create_object_from_email_message(message, ticket_id, payload, files, logger)
         public=True,
         comment=payload.get("full_body", payload["body"]) or "",
         message_id=message_id,
+        team_id=team_id,
     )
 
     if ticket.status == Ticket.REOPENED_STATUS:
@@ -1042,7 +1061,7 @@ def extract_attachments(
 
 
 def extract_email_metadata(
-    message: str, queue: Queue, logger: logging.Logger
+    message: str, queue: Queue, logger: logging.Logger, *, team_id=None, tenant_id=None
 ) -> Ticket:
     """
     Extracts the text/plain  mime part if there is one as the ticket description and
@@ -1176,5 +1195,6 @@ def extract_email_metadata(
     }
 
     return create_object_from_email_message(
-        message_obj, ticket_id, payload, files, logger=logger
+        message_obj, ticket_id, payload, files, logger=logger,
+        team_id=team_id, tenant_id=tenant_id,
     )

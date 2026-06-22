@@ -168,6 +168,8 @@ def process_attachments(followup, attached_files):
                 or mimetypes.guess_type(filename, strict=False)[0]
                 or "application/octet-stream",
                 size=attached.size,
+                # child inherits its follow-up's team (DB-enforced composite FK, ADR-0083)
+                team_id=followup.team_id,
             )
             try:
                 att.full_clean()

@@ -90,8 +90,15 @@ def subscribe_to_ticket_updates(
                 )
             )
 
+        # team_id is the parent ticket's — DB-enforced by the (parent_id, team_id)
+        # composite FK (ADR-0083). A CC always belongs to its ticket's team; this
+        # is the child-inherits-parent invariant, not team attribution.
         return ticket.ticketcc_set.create(
-            user_id=user_id, email=email, can_view=can_view, can_update=can_update
+            user_id=user_id,
+            email=email,
+            can_view=can_view,
+            can_update=can_update,
+            team_id=ticket.team_id,
         )
 
 

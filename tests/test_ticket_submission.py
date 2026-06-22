@@ -18,6 +18,8 @@ from . import utils
 import logging
 from urllib.parse import urlparse
 import uuid
+import uuid as _uuid
+_HD_TEST_TEAM = _uuid.UUID("00000000-0000-0000-0000-0000000000f1")
 
 User = get_user_model()
 
@@ -289,7 +291,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -321,7 +323,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         ticket = Ticket.objects.get(
             title=self.ticket_data["title"],
@@ -360,7 +362,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -406,7 +408,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -458,7 +460,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -504,7 +506,7 @@ class EmailInteractionsTestCase(TestCase):
         message["Cc"] = ",".join(cc_list)
 
         with self.assertLogs("helpdesk", level="WARNING") as dup_warn:
-            extract_email_metadata(str(message), self.queue_public, logger=logger)
+            extract_email_metadata(str(message), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
             self.assertTrue(
                 MULTIPLE_USERS_SAME_EMAIL_MSG in dup_warn.output[0],
                 "The duplicated email across user ID's was was not logged.",
@@ -537,7 +539,7 @@ class EmailInteractionsTestCase(TestCase):
         msg.__setitem__("Content-Type", "text/plain;")
         msg.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -571,7 +573,7 @@ class EmailInteractionsTestCase(TestCase):
         reply.__setitem__("Content-Type", "text/plain;")
         reply.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(reply), self.queue_public, logger=logger)
+        extract_email_metadata(str(reply), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -627,7 +629,7 @@ class EmailInteractionsTestCase(TestCase):
         msg.__setitem__("Content-Type", "text/plain;")
         msg.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -671,7 +673,7 @@ class EmailInteractionsTestCase(TestCase):
         reply.__setitem__("Content-Type", "text/plain;")
         reply.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(reply), self.queue_public, logger=logger)
+        extract_email_metadata(str(reply), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -725,7 +727,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -779,7 +781,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(reply), self.queue_public, logger=logger)
+        extract_email_metadata(str(reply), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -821,7 +823,7 @@ class EmailInteractionsTestCase(TestCase):
         msg.set_payload(self.ticket_data["description"])
 
         email_count = len(mail.outbox)
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -873,7 +875,7 @@ class EmailInteractionsTestCase(TestCase):
 
         extract_email_metadata(
             str(msg), self.queue_public_with_notifications_disabled, logger=logger
-        )
+        , team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -918,7 +920,7 @@ class EmailInteractionsTestCase(TestCase):
 
         email_count = len(mail.outbox)
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -955,7 +957,7 @@ class EmailInteractionsTestCase(TestCase):
         reply.__setitem__("Content-Type", "text/plain;")
         reply.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(reply), self.queue_public, logger=logger)
+        extract_email_metadata(str(reply), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -1003,7 +1005,7 @@ class EmailInteractionsTestCase(TestCase):
 
         extract_email_metadata(
             str(msg), self.queue_public_with_notifications_disabled, logger=logger
-        )
+        , team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -1043,7 +1045,7 @@ class EmailInteractionsTestCase(TestCase):
 
         extract_email_metadata(
             str(reply), self.queue_public_with_notifications_disabled, logger=logger
-        )
+        , team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -1074,7 +1076,7 @@ class EmailInteractionsTestCase(TestCase):
         msg.__setitem__("Content-Type", "text/plain;")
         msg.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(msg), self.queue_public, logger=logger)
+        extract_email_metadata(str(msg), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)
@@ -1096,7 +1098,7 @@ class EmailInteractionsTestCase(TestCase):
         reply.__setitem__("Content-Type", "text/plain;")
         reply.set_payload(self.ticket_data["description"])
 
-        extract_email_metadata(str(reply), self.queue_public, logger=logger)
+        extract_email_metadata(str(reply), self.queue_public, logger=logger, team_id=_HD_TEST_TEAM)
 
         followup = FollowUp.objects.get(message_id=message_id)
         ticket = Ticket.objects.get(id=followup.ticket.id)

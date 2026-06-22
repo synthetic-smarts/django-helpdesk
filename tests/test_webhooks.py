@@ -12,6 +12,8 @@ import logging
 import http.server
 import threading
 from http import HTTPStatus
+import uuid as _uuid
+_HD_TEST_TEAM = _uuid.UUID("00000000-0000-0000-0000-0000000000f1")
 
 
 class WebhookRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -260,7 +262,7 @@ class WebhookTest(APITestCase):
             payload=payload,
             files=[],
             logger=logging.getLogger("helpdesk"),
-        )
+        team_id=_HD_TEST_TEAM)
 
         handled_webhook_requests = requests.get(
             "http://localhost:8125/get-past-requests"
@@ -293,7 +295,7 @@ class WebhookTest(APITestCase):
             payload=payload,
             files=[],
             logger=logging.getLogger("helpdesk"),
-        )
+        team_id=_HD_TEST_TEAM)
         handled_webhook_requests = requests.get(
             "http://localhost:8125/get-past-requests"
         )
