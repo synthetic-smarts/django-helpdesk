@@ -17,6 +17,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
+from .managers import TeamScopedManager, TeamScopedManagerMixin
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy as _
@@ -493,6 +494,8 @@ class Ticket(models.Model):
     the dashboard to prompt users to take ownership of them.
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
     tenant_id = models.UUIDField(db_index=True, null=True, blank=True)  # which site this ticket is about; null for account-level tickets
     email_message_id = models.TextField(null=True, blank=True)  # RFC 5322 Message-ID of the originating email (source='email'); null otherwise
     idempotency_key = models.CharField(max_length=64, null=True, blank=True)  # API/MCP idempotency key; null when not provided
@@ -853,6 +856,7 @@ class Ticket(models.Model):
             return None
 
     class Meta:
+        base_manager_name = "upstream_objects"
         get_latest_by = "created"
         ordering = ("id",)
         verbose_name = _("Ticket")
@@ -985,6 +989,10 @@ class FollowUpManager(models.Manager):
         return self.filter(public=True)
 
 
+class SynsmartsFollowUpManager(TeamScopedManagerMixin, FollowUpManager):
+    pass
+
+
 class FollowUp(models.Model):
     """
     A FollowUp is a comment and/or change to a ticket. We keep a simple
@@ -1057,13 +1065,15 @@ class FollowUp(models.Model):
         editable=False,
     )
 
-    objects = FollowUpManager()
+    objects = SynsmartsFollowUpManager()
+    upstream_objects = FollowUpManager()
 
     time_spent = models.DurationField(
         help_text=_("Time spent on this follow up"), blank=True, null=True
     )
 
     class Meta:
+        base_manager_name = "upstream_objects"
         ordering = ("date",)
         verbose_name = _("Follow-up")
         verbose_name_plural = _("Follow-ups")
@@ -1192,6 +1202,8 @@ class TicketChange(models.Model):
     etc) are tracked here for display purposes.
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
     payload = models.JSONField(default=dict, blank=True)  # event-specific structured data; NOT NULL, empty dict default
 
     followup = models.ForeignKey(
@@ -1231,6 +1243,7 @@ class TicketChange(models.Model):
         return out
 
     class Meta:
+        base_manager_name = "upstream_objects"
         verbose_name = _("Ticket change")
         verbose_name_plural = _("Ticket changes")
 
@@ -1312,6 +1325,11 @@ class Attachment(models.Model):
 
 class FollowUpAttachment(Attachment):
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+
+    class Meta(Attachment.Meta):
+        base_manager_name = "upstream_objects"
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
     scan_status = models.CharField(max_length=20, choices=[("pending", "pending"), ("clean", "clean"), ("quarantined", "quarantined"), ("scan_error", "scan_error")], default="pending")  # async PAN scan state; NOT NULL
     quarantine_reason = models.TextField(null=True, blank=True)
     scan_completed_at = models.DateTimeField(null=True, blank=True)
@@ -1943,6 +1961,11 @@ class TicketCC(models.Model):
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
 
+    class Meta:
+        base_manager_name = "upstream_objects"
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
+
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2177,6 +2200,8 @@ class CustomField(models.Model):
 
 class TicketCustomFieldValue(models.Model):
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2199,6 +2224,7 @@ class TicketCustomFieldValue(models.Model):
         return _("Not defined")
 
     class Meta:
+        base_manager_name = "upstream_objects"
         unique_together = (("ticket", "field"),)
         verbose_name = _("Ticket custom field value")
         verbose_name_plural = _("Ticket custom field values")
@@ -2211,8 +2237,11 @@ class TicketDependency(models.Model):
     these have all been resolved.
     """
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
 
     class Meta:
+        base_manager_name = "upstream_objects"
         unique_together = (("ticket", "depends_on"),)
         verbose_name = _("Ticket dependency")
         verbose_name_plural = _("Ticket dependencies")
@@ -2261,6 +2290,8 @@ class ChecklistTemplate(models.Model):
 
 class Checklist(models.Model):
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
+    objects = TeamScopedManager()
+    upstream_objects = models.Manager()
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2270,6 +2301,7 @@ class Checklist(models.Model):
     name = models.CharField(verbose_name=_("Name"), max_length=100)
 
     class Meta:
+        base_manager_name = "upstream_objects"
         verbose_name = _("Checklist")
         verbose_name_plural = _("Checklists")
 
@@ -2289,6 +2321,12 @@ class ChecklistTaskQuerySet(models.QuerySet):
         return self.filter(completion_date__isnull=False)
 
 
+class SynsmartsChecklistTaskManager(
+    TeamScopedManagerMixin, models.Manager.from_queryset(ChecklistTaskQuerySet)
+):
+    pass
+
+
 class ChecklistTask(models.Model):
     team_id = models.UUIDField(db_index=True, null=False)  # RLS isolation key — account (Team) per ADR-0105/0124
     checklist = models.ForeignKey(
@@ -2305,9 +2343,11 @@ class ChecklistTask(models.Model):
         verbose_name=_("Position"), db_index=True
     )
 
-    objects = ChecklistTaskQuerySet.as_manager()
+    objects = SynsmartsChecklistTaskManager()
+    upstream_objects = ChecklistTaskQuerySet.as_manager()
 
     class Meta:
+        base_manager_name = "upstream_objects"
         verbose_name = _("Checklist Task")
         verbose_name_plural = _("Checklist Tasks")
         ordering = ("position",)
