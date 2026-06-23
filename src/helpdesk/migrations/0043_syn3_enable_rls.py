@@ -14,10 +14,15 @@
 #      GUC is unset (fail-safe: all rows blocked). FORCE so the table owner is
 #      also subject; superusers and BYPASSRLS roles still bypass by design.
 #   3. Three BYPASSRLS maintenance roles (DSAR export, admin export, aggregation)
-#      — the ONLY sanctioned cross-team read path. Created idempotently (roles
-#      are cluster-level and survive test-DB drops). Slice 2 extends the DSAR /
-#      admin GRANTs to the wrapper-owned subscription + unrouted tables, which do
-#      not exist yet; this migration grants only on fork-owned tables.
+#      — the ONLY sanctioned cross-team read path. Role EXISTENCE + attributes are
+#      owned by CNPG spec.managed.roles on the django-db cluster (single owner per
+#      ADR-0083 erratum 2026-06-23); this migration only GRANTs to them and assumes
+#      they pre-exist — CNPG creates them in prod, the CI helpdesk PG migration gate
+#      pre-creates them in tests. (The app role is NOCREATEROLE, so a CREATE ROLE
+#      here never worked in prod anyway — it only ever no-op'd against CNPG-made
+#      roles or failed.) Slice 2 extends the DSAR / admin GRANTs to the wrapper-
+#      owned subscription + unrouted tables, which do not exist yet; this migration
+#      grants only on fork-owned tables.
 #   4. helpdesk_aggregate_v: cross-team aggregates grouped by team_id for billing.
 #      The aggregation role gets SELECT on the VIEW only, never on helpdesk_ticket.
 from django.db import migrations
@@ -52,13 +57,6 @@ EXPORT_GRANT_TABLES = (
 )
 
 
-def _role(name):
-    return (
-        f"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{name}') "
-        f"THEN CREATE ROLE {name} BYPASSRLS; END IF; END $$;"
-    )
-
-
 forward = []
 for p in FK_PARENTS:
     forward.append(f"ALTER TABLE {p} ADD CONSTRAINT {p}_id_team_uniq UNIQUE (id, team_id);")
@@ -78,11 +76,9 @@ for t in TENANT_TABLES:
         f"USING (team_id = NULLIF(current_setting('app.current_team', true), '')::uuid) "
         f"WITH CHECK (team_id = NULLIF(current_setting('app.current_team', true), '')::uuid);"
     )
-forward.append(_role("helpdesk_dsar_role"))
+# Roles are CNPG-owned (see header note 3); GRANT only — they pre-exist.
 forward.append(f"GRANT SELECT ON {EXPORT_GRANT_TABLES} TO helpdesk_dsar_role;")
-forward.append(_role("helpdesk_admin_export_role"))
 forward.append(f"GRANT SELECT ON {EXPORT_GRANT_TABLES} TO helpdesk_admin_export_role;")
-forward.append(_role("helpdesk_aggregation_role"))
 forward.append(
     "CREATE VIEW helpdesk_aggregate_v AS "
     "SELECT team_id, DATE(created) AS created_date, "
@@ -104,11 +100,14 @@ for child, col, parent, cname in COMPOSITE_FKS:
     reverse.append(f"ALTER TABLE {child} DROP CONSTRAINT IF EXISTS {cname};")
 for p in FK_PARENTS:
     reverse.append(f"ALTER TABLE {p} DROP CONSTRAINT IF EXISTS {p}_id_team_uniq;")
-# roles are cluster-level; DROP OWNED clears this DB's grants first
-for r in ("helpdesk_dsar_role", "helpdesk_admin_export_role", "helpdesk_aggregation_role"):
+# Roles are CNPG-owned (header note 3) — reverse REVOKEs the grants this migration
+# made but does NOT drop the roles. Guarded: the role may be absent in a teardown
+# context. helpdesk_aggregation_role's only grant was on helpdesk_aggregate_v,
+# already cascade-dropped by the DROP VIEW above — no explicit REVOKE needed.
+for r in ("helpdesk_dsar_role", "helpdesk_admin_export_role"):
     reverse.append(
         f"DO $$ BEGIN IF EXISTS (SELECT FROM pg_roles WHERE rolname = '{r}') "
-        f"THEN EXECUTE 'DROP OWNED BY {r}'; DROP ROLE {r}; END IF; END $$;"
+        f"THEN EXECUTE 'REVOKE SELECT ON {EXPORT_GRANT_TABLES} FROM {r}'; END IF; END $$;"
     )
 
 

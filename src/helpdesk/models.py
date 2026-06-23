@@ -504,6 +504,10 @@ class Ticket(models.Model):
     source = models.CharField(max_length=20, choices=[("email", "email"), ("mcp", "mcp"), ("api", "api"), ("escalation", "escalation"), ("web", "web")], default="web")  # provenance; NOT NULL (web = upstream form/staff origin)
     is_archived = models.BooleanField(default=False, db_index=True)
     archived_at = models.DateTimeField(null=True, blank=True)  # null until archived
+    # Opaque customer-facing wire id for REST/MCP/the GitHub bridge label
+    # (helpdesk-ticket-{uuid}). The integer pk stays internal — sequential ids
+    # would leak ticket volume + invite IDOR-probing (ADR-0083 Slice 3).
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     OPEN_STATUS = helpdesk_settings.OPEN_STATUS
     REOPENED_STATUS = helpdesk_settings.REOPENED_STATUS
