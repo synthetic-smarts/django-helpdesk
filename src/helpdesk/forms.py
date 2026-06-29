@@ -194,7 +194,9 @@ class EditTicketForm(CustomFieldMixin, forms.ModelForm):
                     )
                 except ObjectDoesNotExist:
                     cfv = TicketCustomFieldValue(
-                        ticket=self.instance, field=customfield
+                        ticket=self.instance,
+                        team_id=self.instance.team_id,  # child inherits ticket's team (ADR-0083 §225)
+                        field=customfield,
                     )
 
                 cfv.value = convert_value(value)
@@ -234,6 +236,7 @@ class EditTicketCustomFieldForm(EditTicketForm):
                 if field.startswith("custom_"):
                     if value != self.fields[field].initial:
                         followup.ticketchange_set.create(
+                            team_id=followup.team_id,  # child inherits follow-up's team (ADR-0083 §225)
                             field=field.replace("custom_", "", 1),
                             old_value=self.fields[field].initial,
                             new_value=value,
@@ -397,6 +400,7 @@ class AbstractTicketForm(CustomFieldMixin, forms.Form):
     def _create_follow_up(self, ticket, title, user=None):
         followup = FollowUp(
             ticket=ticket,
+            team_id=ticket.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
             title=title,
             date=timezone.now(),
             public=True,

@@ -256,6 +256,7 @@ def update_ticket(
 
     f = FollowUp(
         ticket=ticket,
+        team_id=ticket.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
         date=timezone.now(),
         comment=comment,
         time_spent=time_spent,
@@ -293,6 +294,7 @@ def update_ticket(
 
     if title and title != ticket.title:
         f.ticketchange_set.create(
+            team_id=f.team_id,
             field=_("Title"),
             old_value=ticket.title,
             new_value=title,
@@ -301,6 +303,7 @@ def update_ticket(
 
     if new_status != old_status:
         f.ticketchange_set.create(
+            team_id=f.team_id,
             field=_("Status"),
             old_value=old_status_str,
             new_value=ticket.get_status_display(),
@@ -308,6 +311,7 @@ def update_ticket(
 
     if ticket.assigned_to != old_owner:
         f.ticketchange_set.create(
+            team_id=f.team_id,
             field=_("Owner"),
             old_value=old_owner,
             new_value=ticket.assigned_to if ticket.assigned_to else _("Unassigned"),
@@ -315,6 +319,7 @@ def update_ticket(
 
     if priority != ticket.priority:
         f.ticketchange_set.create(
+            team_id=f.team_id,
             field=_("Priority"),
             old_value=ticket.priority,
             new_value=priority,
@@ -323,6 +328,7 @@ def update_ticket(
 
     if queue != ticket.queue.id:
         f.ticketchange_set.create(
+            team_id=f.team_id,
             field=_("Queue"),
             old_value=ticket.queue.id,
             new_value=queue,
@@ -331,6 +337,7 @@ def update_ticket(
 
     if due_date and due_date != ticket.due_date:
         f.ticketchange_set.create(
+            team_id=f.team_id,
             field=_("Due on"),
             old_value=ticket.due_date,
             new_value=due_date,
@@ -361,6 +368,7 @@ def update_ticket(
             if changed:
                 task.save(update_fields=["completion_date"])
                 f.ticketchange_set.create(
+                    team_id=f.team_id,
                     field=f"[{checklist.name}] {task.description}",
                     old_value=_("To do") if changed == "completed" else _("Completed"),
                     new_value=_("Completed") if changed == "completed" else _("To do"),

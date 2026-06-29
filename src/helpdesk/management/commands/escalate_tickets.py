@@ -102,12 +102,14 @@ class Command(BaseCommand):
                 if not notify_only:
                     followup = ticket.followup_set.create(
                         title=_("Ticket Escalated"),
+                        team_id=ticket.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                         public=True,
                         comment=_("Ticket escalated after %(nb)s days")
                         % {"nb": queue.escalate_days},
                     )
 
                     followup.ticketchange_set.create(
+                        team_id=followup.team_id,  # child inherits follow-up's team (ADR-0083 §225)
                         field=_("Priority"),
                         old_value=ticket.priority + 1,
                         new_value=ticket.priority,

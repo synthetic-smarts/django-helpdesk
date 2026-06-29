@@ -956,12 +956,16 @@ class Ticket(models.Model):
         # Check that email is not already part of the ticket
         if email not in ticket_emails:
             if ticketcc:
+                # Reassigning the CC to this ticket moves its team too: team_id
+                # tracks the (new) parent, or the (ticket_id, team_id) composite FK
+                # rejects a cross-team move (ADR-0083 §225).
                 ticketcc.ticket = self
-                ticketcc.save(update_fields=["ticket"])
+                ticketcc.team_id = self.team_id
+                ticketcc.save(update_fields=["ticket", "team_id"])
             elif user:
-                ticketcc = self.ticketcc_set.create(user=user)
+                ticketcc = self.ticketcc_set.create(user=user, team_id=self.team_id)
             else:
-                ticketcc = self.ticketcc_set.create(email=email)
+                ticketcc = self.ticketcc_set.create(email=email, team_id=self.team_id)
             return ticketcc
 
     def set_custom_field_values(self):
@@ -2314,7 +2318,11 @@ class Checklist(models.Model):
 
     def create_tasks_from_template(self, template):
         for position, task in enumerate(template.task_list):
-            self.tasks.create(description=task, position=position)
+            self.tasks.create(
+                description=task,
+                position=position,
+                team_id=self.team_id,  # child inherits checklist's team (ADR-0083 §225)
+            )
 
 
 class ChecklistTaskQuerySet(models.QuerySet):

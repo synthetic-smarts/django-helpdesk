@@ -396,6 +396,7 @@ def followup_edit(request, ticket_id, followup_id):
                 title=title,
                 date=old_date,
                 ticket=_ticket,
+                team_id=_ticket.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                 comment=comment,
                 public=public,
                 new_status=new_status,
@@ -777,6 +778,7 @@ def mass_update(request):
             t.assigned_to = user
             t.save()
             t.followup_set.create(
+                team_id=t.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                 date=timezone.now(),
                 title=_(
                     "Assigned to %(username)s in bulk update"
@@ -789,6 +791,7 @@ def mass_update(request):
             t.assigned_to = None
             t.save()
             t.followup_set.create(
+                team_id=t.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                 date=timezone.now(),
                 title=_("Unassigned in bulk update"),
                 public=True,
@@ -798,6 +801,7 @@ def mass_update(request):
             t.kbitem = kbitem
             t.save()
             t.followup_set.create(
+                team_id=t.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                 date=timezone.now(),
                 title=_("KBItem set in bulk update"),
                 public=False,
@@ -807,6 +811,7 @@ def mass_update(request):
             t.status = Ticket.CLOSED_STATUS
             t.save()
             t.followup_set.create(
+                team_id=t.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                 date=timezone.now(),
                 title=_("Closed in bulk update"),
                 public=False,
@@ -817,6 +822,7 @@ def mass_update(request):
             t.status = Ticket.CLOSED_STATUS
             t.save()
             t.followup_set.create(
+                team_id=t.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
                 date=timezone.now(),
                 title=_("Closed in bulk update"),
                 public=True,
@@ -1451,6 +1457,7 @@ def hold_ticket(request, ticket_id, unhold=False):
 
     followup = FollowUp.objects.create(
         ticket=ticket,
+        team_id=ticket.team_id,  # child inherits parent ticket's team (ADR-0083 §225)
         title=followup_title,
         date=now(),
         public=True,
@@ -1459,6 +1466,7 @@ def hold_ticket(request, ticket_id, unhold=False):
 
     TicketChange.objects.create(
         followup=followup,
+        team_id=followup.team_id,  # child inherits follow-up's team (ADR-0083 §225)
         field=_("On Hold"),
         old_value=str(not ticket.on_hold),
         new_value=str(ticket.on_hold),
