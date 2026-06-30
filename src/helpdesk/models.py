@@ -789,7 +789,25 @@ class Ticket(models.Model):
         """
         Returns a publicly-viewable URL for this ticket, used when giving
         a URL to the submitter of a ticket.
+
+        When ``settings.HELPDESK_TICKET_URL_BUILDER`` names a callable, that
+        callable (``ticket -> str``) owns the URL — a deployment can route
+        submitter links to its own authenticated portal instead of the stock
+        ``secret_key`` public view. Falls back to the stock public_view URL
+        when the setting is unset, so default django-helpdesk is unaffected.
         """
+        # Called bare (no try/except) BY DESIGN: a misconfigured dotted path, or a
+        # builder that raises, must fail loudly so the deployment notices — NOT
+        # silently fall back to the stock public/staff URL, which on a gated
+        # deployment would re-emit the dead-end link this hook exists to replace (or
+        # leak a staff URL to a customer). The builder owns graceful degradation for
+        # DATA anomalies (e.g. an unresolvable team); configuration errors fail hard.
+        builder = getattr(settings, "HELPDESK_TICKET_URL_BUILDER", None)
+        if builder:
+            from django.utils.module_loading import import_string
+
+            return import_string(builder)(self)
+
         from django.contrib.sites.models import Site
         from django.core.exceptions import ImproperlyConfigured
         from django.urls import reverse
