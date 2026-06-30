@@ -24,7 +24,7 @@ from django.db.models import F, Q, Case, When
 from django.forms import HiddenInput, inlineformset_factory, TextInput
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse, reverse_lazy
+from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.html import escape
 from django.utils.translation import gettext as _
@@ -479,16 +479,23 @@ def view_ticket(request, ticket_id):
     )
 
     submitter_userprofile = ticket.get_submitter_userprofile()
+    submitter_userprofile_url = None
     if submitter_userprofile is not None:
         content_type = ContentType.objects.get_for_model(submitter_userprofile)
-        submitter_userprofile_url = reverse(
-            "admin:{app}_{model}_change".format(
-                app=content_type.app_label, model=content_type.model
-            ),
-            kwargs={"object_id": submitter_userprofile.id},
-        )
-    else:
-        submitter_userprofile_url = None
+        try:
+            submitter_userprofile_url = reverse(
+                "admin:{app}_{model}_change".format(
+                    app=content_type.app_label, model=content_type.model
+                ),
+                kwargs={"object_id": submitter_userprofile.id},
+            )
+        except NoReverseMatch:
+            # The submitter-profile link targets the Django admin, which is not
+            # mounted on every deployment (e.g. the OIDC-only staff console, ADR-0209).
+            # Without a registered "admin" namespace this reverse raises and 500s the
+            # whole ticket view; leave the URL None so the template (which already
+            # guards `{% if submitter_userprofile_url %}`) simply omits the link.
+            submitter_userprofile_url = None
 
     checklist_form = CreateChecklistForm(request.POST or None)
     if checklist_form.is_valid():
