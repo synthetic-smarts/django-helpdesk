@@ -1290,6 +1290,13 @@ class Attachment(models.Model):
         upload_to=attachment_path,
         max_length=1000,
         validators=[validate_file_extension],
+        # Indexed: GatedAttachmentS3Storage.url() (synsmarts staff-console serving
+        # tier) resolves each rendered attachment link via
+        # FollowUpAttachment.objects.filter(file=<key>).first(), so a staff list view
+        # rendering N attachment links did N equality lookups on this column — a seq
+        # scan each without an index. Abstract field, so both FollowUpAttachment and
+        # KBIAttachment tables get the btree index.
+        db_index=True,
     )
 
     filename = models.CharField(
