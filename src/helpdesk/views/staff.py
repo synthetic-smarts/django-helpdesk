@@ -437,7 +437,23 @@ followup_delete = staff_member_required(followup_delete)
 
 @helpdesk_staff_member_required
 def view_ticket(request, ticket_id):
-    ticket = get_object_or_404(Ticket, id=ticket_id)
+    # Prefetch everything the detail template touches per followup inside
+    # {% for followup in ticket.followup_set.all %}: the two reverse-FK collection loops
+    # followup.followupattachment_set.all (attachment links) + followup.ticketchange_set.all
+    # (the change/audit trail), AND the forward-FK followup.user (rendered via
+    # {% if followup.user and request.user == followup.user %}). Without this each is a
+    # separate query per followup — three N+1s on the most-viewed staff page. Prefetching
+    # collapses each to one bulk query regardless of followup count: O(1), not O(followups).
+    # (Staff RLS is permissive — staff serve queues spanning teams — and the per-ticket
+    # queue ACL is enforced by ticket_perm_check below, so the unscoped prefetch is correct.)
+    ticket = get_object_or_404(
+        Ticket.objects.prefetch_related(
+            "followup_set__followupattachment_set",
+            "followup_set__ticketchange_set",
+            "followup_set__user",
+        ),
+        id=ticket_id,
+    )
     ticket_perm_check(request, ticket)
 
     if "take" in request.GET:
