@@ -509,7 +509,7 @@ class Ticket(models.Model):
     # would leak ticket volume + invite IDOR-probing (ADR-0083 Slice 3).
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     agent_channel_id = models.CharField(max_length=32, null=True, blank=True)  # ADR-0274 private ticket channel; null when unbound or archived
-    agent_session_generation = models.PositiveIntegerField(default=0)  # ADR-0274 purge generation; non-null, zero before the first purge
+    agent_session_generation = models.PositiveIntegerField(default=0, db_default=0)  # ADR-0274 purge generation; non-null, zero before the first purge
     artifacts_purged_at = models.DateTimeField(null=True, blank=True)
 
     OPEN_STATUS = helpdesk_settings.OPEN_STATUS

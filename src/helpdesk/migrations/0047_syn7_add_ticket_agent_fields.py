@@ -6,6 +6,7 @@
 #
 # Plain AddField is safe: a nullable char and an integer default of zero
 # introduce no unique values and require no data backfill.
+# The DB default keeps old-image INSERTs compatible during rollout skew, as scripts/check_migration_db_default.py enforces in synsmarts.
 from django.db import migrations, models
 
 
@@ -23,6 +24,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="ticket",
             name="agent_session_generation",
-            field=models.PositiveIntegerField(default=0),
+            field=models.PositiveIntegerField(default=0, db_default=0),
         ),
     ]
