@@ -839,7 +839,22 @@ class Ticket(models.Model):
         """
         Returns a staff-only URL for this ticket, used when giving a URL to
         a staff member (in emails etc)
+
+        When ``settings.HELPDESK_STAFF_URL_BUILDER`` names a callable, that
+        callable (``ticket -> str``) owns the URL, so a deployment whose staff
+        UI is served on a different host than the Sites domain can link staff
+        there. Falls back to the stock Sites-domain URL when the setting is
+        unset, so default django-helpdesk is unaffected.
         """
+        # Called bare (no try/except), as for HELPDESK_TICKET_URL_BUILDER: a
+        # misconfigured hook must fail loudly, not silently emit the
+        # Sites-domain link the hook exists to replace.
+        builder = getattr(settings, "HELPDESK_STAFF_URL_BUILDER", None)
+        if builder:
+            from django.utils.module_loading import import_string
+
+            return import_string(builder)(self)
+
         from django.contrib.sites.models import Site
         from django.core.exceptions import ImproperlyConfigured
         from django.urls import reverse
