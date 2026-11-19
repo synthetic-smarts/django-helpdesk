@@ -1,3 +1,0 @@
-localhost {
-        reverse_proxy django-helpdesk:8000
-}
