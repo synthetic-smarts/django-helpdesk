@@ -1,0 +1,4 @@
+# Written by .claude/skills/synadmin-forgejo-wave/forgejo_wave.py flip-commit (synthetic-smarts#8064).
+# Implements ADR-0312 §8: issues live on Forgejo, which reads this chooser before .github's.
+blank_issues_enabled: true
+contact_links: []

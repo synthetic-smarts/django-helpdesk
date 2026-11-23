@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Issues are on Forgejo
+    url: https://forgejo.synsmarts.io/synthetic-smarts/django-helpdesk/issues
+    about: This repository moved to Forgejo; GitHub keeps a read-only copy.
