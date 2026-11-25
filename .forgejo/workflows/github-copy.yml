@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   copy:
-    runs-on: synsmarts-arm64-az
+    runs-on: ${{ vars.CI_RUNNER_FLEET == 'azure' && 'synsmarts-arm64-az' || 'synsmarts-arm64-long' }}
     timeout-minutes: 15
     enable-openid-connect: true
     env:
@@ -40,14 +40,9 @@ jobs:
           work="$(mktemp -d)"
           trap 'rm -rf "$work"' EXIT
           auth() { printf 'Authorization: Basic %s' "$(printf 'x-access-token:%s' "$1" | base64 | tr -d '\n')"; }
-
-          # Forgejo source: the job's own repository token, given to git through the
-          # environment, never argv.
-          git init -q --bare "$work/repo"
-          export GIT_DIR="$work/repo" GIT_TERMINAL_PROMPT=0 GIT_CONFIG_COUNT=1
-          export GIT_CONFIG_KEY_0="http.$SOURCE_URL.extraHeader"
-          GIT_CONFIG_VALUE_0="$(auth "$FORGEJO_TOKEN")"; export GIT_CONFIG_VALUE_0
-          git fetch -q --no-tags "$SOURCE_URL" $REFSPECS '+refs/tags/*:refs/tags/*'
+          since="$(date +%s)"
+          mark() { now="$(date +%s)"; echo "github-copy: $1 in $((now - since))s"; since="$now"; }
+          objects() { git count-objects -v | awk '$1 == "count:" || $1 == "in-pack:" { n += $2 } END { print n + 0 }'; }
 
           # The mirror App token for this one copy, from the broker (ADR-0315).
           token="$(python3 - <<'PY'
@@ -70,11 +65,43 @@ jobs:
           revoke() { curl -fsS -o /dev/null -X DELETE -H "Authorization: Bearer $token" \
             -H 'Accept: application/vnd.github+json' "$GITHUB_API/installation/token" || true; rm -rf "$work"; }
           trap revoke EXIT
+          mark "mirror token released"
 
-          export GIT_CONFIG_KEY_0="http.$COPY_URL.extraHeader"
-          GIT_CONFIG_VALUE_0="$(auth "$token")"; export GIT_CONFIG_VALUE_0
+          # Tokens reach git through the environment, never argv: the job's own repository
+          # token for Forgejo, the mirror App token for the copy.
+          git init -q --bare "$work/repo"
+          export GIT_DIR="$work/repo" GIT_TERMINAL_PROMPT=0 GIT_CONFIG_COUNT=2
+          export GIT_CONFIG_KEY_0="http.$SOURCE_URL.extraHeader" GIT_CONFIG_KEY_1="http.$COPY_URL.extraHeader"
+          GIT_CONFIG_VALUE_0="$(auth "$FORGEJO_TOKEN")"; export GIT_CONFIG_VALUE_0
+          GIT_CONFIG_VALUE_1="$(auth "$token")"; export GIT_CONFIG_VALUE_1
+
+          # The copy's own tips, one commit deep: the fetch from Forgejo negotiates from them
+          # and takes only what the copy lacks, where an empty repository took every branch's
+          # whole history (synthetic-smarts#7068: run 4686 spent 102 s on that for one
+          # promotion-journal row). A copy with no refs yet takes the whole history. The tips'
+          # commits come from Forgejo, which holds every commit the copy was given, beside the
+          # runner; one Forgejo lacks (a diverged copy, a moved tag) comes from the copy, whose
+          # snapshots cross the internet (run 4812 took 66 s reading both from GitHub).
+          git ls-remote "$COPY_URL" $(for s in $REFSPECS; do printf '%s ' "${s%%:*}"; done) 'refs/tags/*' \
+            | { grep -v '\^{}$' || true; } | awk '{print "+" $1 ":refs/copy/" substr($2, 6)}' > "$work/tips"
+          tips_from=none
+          if [ -s "$work/tips" ]; then
+            if git fetch -q --no-tags --depth=1 "$SOURCE_URL" $(cat "$work/tips") 2>/dev/null; then
+              tips_from=Forgejo
+            else
+              awk -F'[+:]' '{print "+refs/" substr($3, 11) ":" $3}' "$work/tips" > "$work/tip-refs"
+              git fetch -q --no-tags --depth=1 "$COPY_URL" $(cat "$work/tip-refs")
+              tips_from="the copy"
+            fi
+          fi
+          mark "read $(awk 'END { print NR }' "$work/tips") copy tips from $tips_from"
+          before="$(objects)"
+          git fetch -q --no-tags "$SOURCE_URL" $REFSPECS '+refs/tags/*:refs/tags/*'
+          mark "fetched $(( $(objects) - before )) objects from Forgejo"
+
           # Never --force, never --prune: a copy that diverged refuses, and the job fails.
           git push -q --porcelain "$COPY_URL" $REFSPECS 'refs/tags/*:refs/tags/*'
+          mark "pushed"
 
           # Tip comparison: every pushed ref on the copy equals Forgejo's.
           git for-each-ref --format='%(objectname) %(refname)' refs/heads refs/tags | sort > "$work/forgejo"
